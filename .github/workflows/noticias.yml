@@ -12,6 +12,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python marca_harvester.py
+      - run: python marca_harvester.py "Messi"
+      - run: python marca_harvester.py "Alfonso"
+      
         env:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
