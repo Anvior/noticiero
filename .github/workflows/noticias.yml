@@ -1,8 +1,13 @@
 name: Noticias automáticas
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
+
+env:
+  SMTP_USER: "anartz2001@gmail.com"
+  SMTP_PASS: ${{ secrets.SMTP_PASS }}
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -12,9 +17,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - name: Check SMTP env
+        run: |
+          python - <<'PY'
+          import os
+          assert os.getenv("SMTP_USER"), "SMTP_USER vacío"
+          assert os.getenv("SMTP_PASS"), "SMTP_PASS vacío"
+          print("SMTP env OK")
+          PY
       - run: python marca_harvester.py "Messi"
       - run: python marca_harvester.py "Alfonso"
-      
-        env:
-          SMTP_USER: "anartz2001@gmail.com"
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
