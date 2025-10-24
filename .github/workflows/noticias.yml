@@ -16,4 +16,5 @@ jobs:
       - run: python marca_harvester.py "Alfonso"
       
         env:
+          SMTP_USER: "anartz2001@gmail.com"
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
