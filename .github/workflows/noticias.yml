@@ -1,7 +1,7 @@
 name: Noticias automáticas
 on:
   schedule:
-    - cron: "0 6 * * *"   # diario 06:00 UTC
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 jobs:
   run:
