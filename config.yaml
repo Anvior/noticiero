@@ -1,16 +1,30 @@
+# 🗝️ Palabras clave para buscar en las noticias.
+# Puedes poner una o varias entre comillas. 
+# Si no quieres filtro, deja las comillas vacías: ""
 keywords:
   - "oro"
   - "pies"
-     # "" para sin filtro
+
+# 🌍 Zona horaria (normalmente no se toca).
+# Si estás en España, deja "Europe/Madrid".
 tzname: "Europe/Madrid"
+
+# ⏱️ Cuántas horas hacia atrás se buscan noticias recientes.
+# 24 significa "últimas 24 horas".
 hours_recent: 24
+
+# 📧 A qué correos se enviará el resumen.
+# Puedes añadir más poniendo cada uno en una línea nueva con "-".
 to_emails:
   - "anartz2001@gmail.com"
 
+# 🌐 Medios o páginas de donde se sacan las noticias.
+# Puedes añadir o quitar medios fácilmente copiando un bloque.
+# Cada bloque necesita un nombre, una URL y el número máximo de artículos.
 sources:
-  - name: "MARCA"
-    url: "https://www.marca.com/"
-    max_to_fetch: 400
+  - name: "MARCA"                      # Nombre del medio
+    url: "https://www.marca.com/"      # Dirección principal
+    max_to_fetch: 400                  # Cuántas noticias mirar como máximo
 
   - name: "EXPANSION"
     url: "https://www.expansion.com/"
@@ -19,4 +33,3 @@ sources:
   - name: "MUNDO_DEPORTIVO"
     url: "https://www.mundodeportivo.com/"
     max_to_fetch: 400
-
