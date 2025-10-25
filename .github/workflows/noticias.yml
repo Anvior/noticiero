@@ -2,7 +2,7 @@
 name: Noticias automáticas
 on:
   schedule:
-    - cron: "0 6 * * *"   # diario 06:00 UTC
+      - cron: "*/5 * * * *"   # cada 5 minutos
   workflow_dispatch:
 
 jobs:
