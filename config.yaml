@@ -9,12 +9,12 @@ to_emails:
 
 sources:
   - name: "MARCA"
-    listing: "https://www.marca.com/ultimas-noticias.html"
+    listing: "https://www.marca.com/"
     homepage: "https://www.marca.com/"
     domain_prefix: "https://www.marca.com/"
     max_to_fetch: 400
   - name: "EXPANSION"
-    listing: "https://www.expansion.com/economia.html?intcmp=MENUHOM24101&s_kw=economia"
+    listing: "https://www.expansion.com/"
     homepage: "https://www.expansion.com/"
     domain_prefix: "https://www.expansion.com/"
     max_to_fetch: 400
