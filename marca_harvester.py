@@ -18,7 +18,7 @@ SOURCES = [
         "listing": "https://www.marca.com/ultimas-noticias.html",
         "homepage": "https://www.marca.com/",
         "domain_prefix": "https://www.marca.com/",
-        "max_to_fetch": 60,
+        "max_to_fetch": 400,
     },
     {
         "name": "EXPANSION",
@@ -26,7 +26,7 @@ SOURCES = [
         "listing": "https://www.expansion.com/economia.html?intcmp=MENUHOM24101&s_kw=economia",
         "homepage": "https://www.expansion.com/",
         "domain_prefix": "https://www.expansion.com/",
-        "max_to_fetch": 60,
+        "max_to_fetch": 400,
     },
 ]
 
@@ -301,4 +301,5 @@ if __name__ == "__main__":
     kw     = sys.argv[1] if len(sys.argv) > 1 else None
     tzname = sys.argv[2] if len(sys.argv) > 2 else "Europe/Madrid"
     main(keyword=kw, tzname=tzname)
+
 
