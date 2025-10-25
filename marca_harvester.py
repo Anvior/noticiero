@@ -302,8 +302,9 @@ if __name__ == "__main__":
     kw_env = os.getenv("KEYWORD")
     tz_env = os.getenv("TZNAME")
     kw     = sys.argv[1] if len(sys.argv) > 1 else (kw_env or CFG.get("keyword"))
-    tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname", "Europe/Madrid"))
+    tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
     main(keyword=kw, tzname=tzname)
+
 
 
 
