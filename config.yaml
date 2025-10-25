@@ -1,4 +1,7 @@
-keyword: "oro"         # "" para sin filtro
+keywords:
+  - "oro"
+  - "pies"
+     # "" para sin filtro
 tzname: "Europe/Madrid"
 hours_recent: 24
 to_emails:
@@ -14,4 +17,9 @@ sources:
     listing: "https://www.expansion.com/economia.html?intcmp=MENUHOM24101&s_kw=economia"
     homepage: "https://www.expansion.com/"
     domain_prefix: "https://www.expansion.com/"
+    max_to_fetch: 400
+  - name: "MUNDO_DEPORTIVO"
+    listing: "https://www.mundodeportivo.com/"
+    homepage: "https://www.mundodeportivo.com/"
+    domain_prefix: "https://www.mundodeportivo.com/"
     max_to_fetch: 400
