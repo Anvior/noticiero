@@ -23,11 +23,22 @@ def load_config():
 CFG = load_config()
 
 
+
 # ========= FUENTES =========
-SOURCES = CFG.get("sources", [
-    {"name":"MARCA","listing":"https://www.marca.com/ultimas-noticias.html","homepage":"https://www.marca.com/","domain_prefix":"https://www.marca.com/","max_to_fetch":400},
-    {"name":"EXPANSION","listing":"https://www.expansion.com/economia.html?intcmp=MENUHOM24101&s_kw=economia","homepage":"https://www.expansion.com/","domain_prefix":"https://www.expansion.com/","max_to_fetch":400},
-])
+SOURCES_RAW = CFG.get("sources", [])
+SOURCES = []
+for s in SOURCES_RAW:
+    url = s.get("url")
+    if not url:
+        continue
+    SOURCES.append({
+        "name": s.get("name", "SIN_NOMBRE"),
+        "listing": url,
+        "homepage": url,
+        "domain_prefix": url,
+        "max_to_fetch": s.get("max_to_fetch", 400)
+    })
+
 
 
 # ========= RED =========
@@ -323,6 +334,7 @@ if __name__ == "__main__":
     kws = CFG.get("keywords") or [CFG.get("keyword")]
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
     main(keyword=kws, tzname=tzname)
+
 
 
 
