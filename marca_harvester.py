@@ -24,23 +24,10 @@ CFG = load_config()
 
 
 # ========= FUENTES =========
-SOURCES = [
-    {
-        "name": "MARCA",
-        "listing": "https://www.marca.com/ultimas-noticias.html",
-        "homepage": "https://www.marca.com/",
-        "domain_prefix": "https://www.marca.com/",
-        "max_to_fetch": 400,
-    },
-    {
-        "name": "EXPANSION",
-        # sección que sí existe y se actualiza varias veces al día
-        "listing": "https://www.expansion.com/economia.html?intcmp=MENUHOM24101&s_kw=economia",
-        "homepage": "https://www.expansion.com/",
-        "domain_prefix": "https://www.expansion.com/",
-        "max_to_fetch": 400,
-    },
-]
+SOURCES = CFG.get("sources", [
+    {"name":"MARCA","listing":"https://www.marca.com/ultimas-noticias.html","homepage":"https://www.marca.com/","domain_prefix":"https://www.marca.com/","max_to_fetch":400},
+    {"name":"EXPANSION","listing":"https://www.expansion.com/economia.html?intcmp=MENUHOM24101&s_kw=economia","homepage":"https://www.expansion.com/","domain_prefix":"https://www.expansion.com/","max_to_fetch":400},
+])
 
 
 # ========= RED =========
@@ -60,7 +47,7 @@ SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SMTP_USER = "anartz2001@gmail.com"
 SMTP_PASS = os.getenv("SMTP_PASS")   # App Password (16 chars, sin espacios)
-TO_EMAILS = ["anartz2001@gmail.com"]  # añade más si quieres
+TO_EMAILS = CFG.get("to_emails", ["anartz2001@gmail.com"]) # añade más si quieres
 
 # ========= UTILIDADES =========
 def log(m): print(m, flush=True)
@@ -317,6 +304,7 @@ if __name__ == "__main__":
     kw     = sys.argv[1] if len(sys.argv) > 1 else (kw_env or CFG.get("keyword"))
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname", "Europe/Madrid"))
     main(keyword=kw, tzname=tzname)
+
 
 
 
