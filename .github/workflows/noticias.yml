@@ -25,5 +25,6 @@ jobs:
           assert os.getenv("SMTP_PASS"), "SMTP_PASS vacío"
           print("SMTP env OK")
           PY
+      - run: python marca_harvester.py 
       - run: python marca_harvester.py "Messi"
       - run: python marca_harvester.py "Hacienda "
