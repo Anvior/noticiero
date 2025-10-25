@@ -1,6 +1,6 @@
 keyword: "messi"         # "" para sin filtro
 tzname: "Europe/Madrid"
-hours_recent: 72
+hours_recent: 24
 to_emails:
   - "anartz2001@gmail.com"
 
