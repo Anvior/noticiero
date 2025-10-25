@@ -7,9 +7,21 @@ import requests
 from bs4 import BeautifulSoup
 import trafilatura
 import extruct
+import yaml
 from email.message import EmailMessage
 from w3lib.html import get_base_url
 from dateutil import tz, parser as dateparser
+
+CONFIG_FILE = "config.yaml"
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+CFG = load_config()
+
 
 # ========= FUENTES =========
 SOURCES = [
@@ -181,7 +193,8 @@ def extract_article(url, tzname="Europe/Madrid"):
         "content": article_body or ""
     }
 
-def is_recent(dt_iso, tzname="Europe/Madrid", hours=24):
+def is_recent(dt_iso, tzname="Europe/Madrid", hours=None):
+    hours = hours or CFG.get("hours_recent", 24)  # usa config.yaml o 72 por defecto
     if not dt_iso:
         return False
     try:
@@ -191,6 +204,7 @@ def is_recent(dt_iso, tzname="Europe/Madrid", hours=24):
         return (now - dt).total_seconds() <= hours * 3600
     except Exception:
         return False
+
 
 def build_html_multi(arts, tzname="Europe/Madrid"):
     target = tz.gettz(tzname)
@@ -298,8 +312,12 @@ def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out
 
 
 if __name__ == "__main__":
-    kw     = sys.argv[1] if len(sys.argv) > 1 else None
-    tzname = sys.argv[2] if len(sys.argv) > 2 else "Europe/Madrid"
+    kw_env = os.getenv("KEYWORD")
+    tz_env = os.getenv("TZNAME")
+    kw     = sys.argv[1] if len(sys.argv) > 1 else (kw_env or CFG.get("keyword"))
+    tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname", "Europe/Madrid"))
     main(keyword=kw, tzname=tzname)
+
+
 
 
