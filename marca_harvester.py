@@ -181,15 +181,16 @@ def extract_article(url, tzname="Europe/Madrid"):
         "content": article_body or ""
     }
 
-def is_recent(dt_iso, tzname="Europe/Madrid", hours=72):
-    if not dt_iso: return True
+def is_recent(dt_iso, tzname="Europe/Madrid", hours=24):
+    if not dt_iso:
+        return False
     try:
         target = tz.gettz(tzname)
         now = datetime.now(target)
         dt = dateparser.parse(dt_iso).astimezone(target)
         return (now - dt).total_seconds() <= hours * 3600
     except Exception:
-        return True
+        return False
 
 def build_html_multi(arts, tzname="Europe/Madrid"):
     target = tz.gettz(tzname)
@@ -238,6 +239,7 @@ def enviar_correo(html_content, subject):
     log(f"Correo enviado a {', '.join(TO_EMAILS)} ✅")
 
 # ========= MAIN =========
+# ========= MAIN =========
 def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out_json="noticias_hoy.json"):
     seen = load_state()
     listing = parse_all_listings()
@@ -259,7 +261,6 @@ def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out
     for i, item in enumerate(listing, 1):
         url = item["url"]
 
-        # respetar 'seen' solo si NO hay keyword
         if not kw_norm and url in seen:
             continue
 
@@ -270,10 +271,12 @@ def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out
             log(f"Error extrayendo {url}: {e}")
             continue
 
+        # si hay keyword, debe aparecer en título o cuerpo
         if kw_norm and kw_norm not in norm((art.get("title") or "") + " " + (art.get("content") or "")):
             continue
 
-        if not kw_norm and not is_recent(art.get("published"), tzname=tzname, hours=72):
+        # exigir fecha y limitar a 24 h
+        if not art.get("published") or not is_recent(art.get("published"), tzname=tzname, hours=24):
             continue
 
         art["source"] = item.get("source","?")
@@ -285,7 +288,6 @@ def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out
 
     html = build_html_multi(collected, tzname=tzname)
 
-
     if collected:
         asunto = f"MARCA + EXPANSIÓN ({datetime.now().strftime('%Y-%m-%d')})" + (f" — filtro: {keyword}" if keyword else "")
         enviar_correo(html, subject=asunto)
@@ -294,7 +296,9 @@ def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out
 
     log(f"Artículos guardados: {len(collected)} → {out_html} / {out_json}")
 
+
 if __name__ == "__main__":
     kw     = sys.argv[1] if len(sys.argv) > 1 else None
     tzname = sys.argv[2] if len(sys.argv) > 2 else "Europe/Madrid"
     main(keyword=kw, tzname=tzname)
+
