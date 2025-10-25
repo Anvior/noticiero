@@ -241,7 +241,7 @@ def enviar_correo(html_content, subject):
 
 # ========= MAIN =========
 # ========= MAIN =========
-def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out_json="noticias_hoy.json"):
+def main(keyword=None, tzname="Europe/Madrid"):
     seen = load_state()
     listing = parse_all_listings()
 
@@ -295,7 +295,7 @@ def main(keyword=None, tzname="Europe/Madrid", out_html="noticias_hoy.html", out
     else:
         log("No hay artículos para enviar en el rango actual.")
 
-    log(f"Artículos guardados: {len(collected)} → {out_html} / {out_json}")
+    log(f"Artículos enviados: {len(collected)}")
 
 
 if __name__ == "__main__":
@@ -304,6 +304,7 @@ if __name__ == "__main__":
     kw     = sys.argv[1] if len(sys.argv) > 1 else (kw_env or CFG.get("keyword"))
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname", "Europe/Madrid"))
     main(keyword=kw, tzname=tzname)
+
 
 
 
