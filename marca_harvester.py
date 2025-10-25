@@ -249,11 +249,22 @@ def main(keyword=None, tzname="Europe/Madrid"):
     for it in listing[:15]:
         print(" -", f"[{it.get('source','?')}] {(it.get('title') or '').strip()}")
 
-    kw_norm = norm(keyword) if keyword else None
-    if kw_norm:
+    # Normaliza keyword(s) -> lista
+    kw_list = None
+    if keyword:
+        if isinstance(keyword, (list, tuple, set)):
+            kw_list = [norm(k) for k in keyword if k]
+        else:
+            kw_list = [norm(keyword)]
+
+    # Prefiltro por título/URL
+    if kw_list:
         before = len(listing)
-        listing = [it for it in listing if kw_norm in norm(it.get("title","")) or kw_norm in norm(it.get("url",""))]
-        print(f"Enlaces tras prefiltro por '{keyword}': {len(listing)} (antes {before})")
+        listing = [
+            it for it in listing
+            if any(k in norm(it.get("title","")) or k in norm(it.get("url","")) for k in kw_list)
+        ]
+        print(f"Enlaces tras prefiltro por {kw_list}: {len(listing)} (antes {before})")
         if len(listing) == 0:
             print("Aviso: 0 coincidencias en títulos/URLs. Continuaré con el listado completo para buscar en el cuerpo.")
             listing = parse_all_listings()
@@ -262,7 +273,8 @@ def main(keyword=None, tzname="Europe/Madrid"):
     for i, item in enumerate(listing, 1):
         url = item["url"]
 
-        if not kw_norm and url in seen:
+        # respeta 'seen' solo si no hay filtro
+        if not kw_list and url in seen:
             continue
 
         time.sleep(SLEEP_BETWEEN)
@@ -272,12 +284,14 @@ def main(keyword=None, tzname="Europe/Madrid"):
             log(f"Error extrayendo {url}: {e}")
             continue
 
-        # si hay keyword, debe aparecer en título o cuerpo
-        if kw_norm and kw_norm not in norm((art.get("title") or "") + " " + (art.get("content") or "")):
-            continue
+        # si hay keywords, deben aparecer en título o cuerpo
+        if kw_list:
+            fulltxt = norm((art.get("title") or "") + " " + (art.get("content") or ""))
+            if not any(k in fulltxt for k in kw_list):
+                continue
 
-        # exigir fecha y limitar a 24 h
-        if not art.get("published") or not is_recent(art.get("published"), tzname=tzname, hours=24):
+        # exigir fecha y limitar por ventana reciente (config.yaml -> hours_recent)
+        if not art.get("published") or not is_recent(art.get("published"), tzname=tzname):
             continue
 
         art["source"] = item.get("source","?")
@@ -290,7 +304,11 @@ def main(keyword=None, tzname="Europe/Madrid"):
     html = build_html_multi(collected, tzname=tzname)
 
     if collected:
-        asunto = f"MARCA + EXPANSIÓN ({datetime.now().strftime('%Y-%m-%d')})" + (f" — filtro: {keyword}" if keyword else "")
+        filtro = ""
+        if kw_list:
+            filtro_vals = keyword if isinstance(keyword, (list, tuple, set)) else [keyword]
+            filtro = f" — filtro: {', '.join(str(k) for k in filtro_vals if k)}"
+        asunto = f"MARCA + EXPANSIÓN ({datetime.now().strftime('%Y-%m-%d')}){filtro}"
         enviar_correo(html, subject=asunto)
     else:
         log("No hay artículos para enviar en el rango actual.")
@@ -298,12 +316,14 @@ def main(keyword=None, tzname="Europe/Madrid"):
     log(f"Artículos enviados: {len(collected)}")
 
 
+
 if __name__ == "__main__":
     kw_env = os.getenv("KEYWORD")
     tz_env = os.getenv("TZNAME")
-    kw     = sys.argv[1] if len(sys.argv) > 1 else (kw_env or CFG.get("keyword"))
+    kws = CFG.get("keywords") or [CFG.get("keyword")]
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
     main(keyword=kw, tzname=tzname)
+
 
 
 
