@@ -252,6 +252,8 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
         p = a.get("published")
         p_h = dateparser.parse(p).strftime("%Y-%m-%d %H:%M") if p else "Sin fecha"
         author_html = f'<div style="font-size:12px;color:#555;">{a.get("author")}</div>' if a.get("author") else ""
+        # SIN recorte: usamos el texto completo
+        content_html = a.get("content","")
         blocks.append(f"""
         <article style="margin-bottom:24px;">
           <div style="font-size:12px;color:#999">{a.get('source','')}</div>
@@ -259,7 +261,7 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
           {author_html}
           <div style="font-size:12px;color:#666;">{p_h} — <a href="{a['url']}">{a['url']}</a></div>
           <p style="white-space:pre-wrap; line-height:1.45; margin-top:10px;">
-            {a['content'][:1500]}{'…' if len(a['content'])>1500 else ''}
+            {content_html}
           </p>
         </article>""")
     return f"""<!doctype html>
@@ -269,6 +271,7 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
 <div style="color:#666; font-size:12px; margin-bottom:16px;">Generado {now} ({tzname})</div>
 {''.join(blocks) if blocks else '<p>No hay artículos en el rango actual.</p>'}
 </body></html>"""
+
 
 
 def load_state():
@@ -377,6 +380,7 @@ if __name__ == "__main__":
     kws = CFG.get("keywords") or [CFG.get("keyword")]
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
     main(keyword=kws, tzname=tzname)
+
 
 
 
