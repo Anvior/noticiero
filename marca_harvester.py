@@ -172,24 +172,45 @@ def extract_article(url, tzname="Europe/Madrid"):
     res = http_get(url)
     html = res.text
     meta = extract_jsonld(html, url) or {}
+
     published = normalize_datetime(meta.get("datePublished") or meta.get("dateModified"), tzname)
     headline = meta.get("headline")
     article_body = meta.get("articleBody")
+
+    # ---- autor ----
     author = ""
+    auth = meta.get("author")
+    def pick_name(x):
+        if isinstance(x, dict):
+            return x.get("name") or x.get("@id") or ""
+        if isinstance(x, str):
+            return x
+        return ""
+    if isinstance(auth, list):
+        names = [pick_name(a) for a in auth if pick_name(a)]
+        author = ", ".join(names)
+    else:
+        author = pick_name(auth)
 
-    # autor desde JSON-LD
-    auth_data = meta.get("author")
-    if isinstance(auth_data, dict):
-        author = auth_data.get("name", "")
-    elif isinstance(auth_data, list) and len(auth_data) > 0:
-        author = auth_data[0].get("name", "")
-
-    # fallback HTML
     if not author:
         soup = BeautifulSoup(html, "lxml")
-        meta_auth = soup.find("meta", {"name": "author"})
-        if meta_auth:
-            author = meta_auth.get("content", "")
+        # <meta> comunes
+        for sel in [
+            ('meta', {"name":"author"}),
+            ('meta', {"property":"article:author"}),
+            ('meta', {"name":"byl"}),
+            ('meta', {"name":"dc.creator"}),
+            ('meta', {"name":"parsely-author"}),
+        ]:
+            tag = soup.find(*sel)
+            if tag and tag.get("content"):
+                author = tag["content"].strip()
+                break
+        # Fallbacks HTML típicos
+        if not author:
+            cand = soup.select_one('[itemprop="author"] [itemprop="name"], [rel="author"], .author, .byline, .by-author')
+            if cand:
+                author = cand.get_text(strip=True)
 
     if not article_body:
         article_body = trafilatura.extract(html, url=url, include_comments=False, include_tables=False) or ""
@@ -207,6 +228,7 @@ def extract_article(url, tzname="Europe/Madrid"):
         "published": published.isoformat() if published else None,
         "content": article_body or ""
     }
+
 
 
 def is_recent(dt_iso, tzname="Europe/Madrid", hours=None):
@@ -229,10 +251,12 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
     for a in arts:
         p = a.get("published")
         p_h = dateparser.parse(p).strftime("%Y-%m-%d %H:%M") if p else "Sin fecha"
+        author_html = f'<div style="font-size:12px;color:#555;">{a.get("author")}</div>' if a.get("author") else ""
         blocks.append(f"""
         <article style="margin-bottom:24px;">
           <div style="font-size:12px;color:#999">{a.get('source','')}</div>
-          <h3 style="margin:2px 0 6px 0;">{a['title']}</h3>
+          <h3 style="margin:2px 0 2px 0;">{a['title']}</h3>
+          {author_html}
           <div style="font-size:12px;color:#666;">{p_h} — <a href="{a['url']}">{a['url']}</a></div>
           <p style="white-space:pre-wrap; line-height:1.45; margin-top:10px;">
             {a['content'][:1500]}{'…' if len(a['content'])>1500 else ''}
@@ -245,6 +269,7 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
 <div style="color:#666; font-size:12px; margin-bottom:16px;">Generado {now} ({tzname})</div>
 {''.join(blocks) if blocks else '<p>No hay artículos en el rango actual.</p>'}
 </body></html>"""
+
 
 def load_state():
 
@@ -352,6 +377,7 @@ if __name__ == "__main__":
     kws = CFG.get("keywords") or [CFG.get("keyword")]
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
     main(keyword=kws, tzname=tzname)
+
 
 
 
