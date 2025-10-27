@@ -175,6 +175,21 @@ def extract_article(url, tzname="Europe/Madrid"):
     published = normalize_datetime(meta.get("datePublished") or meta.get("dateModified"), tzname)
     headline = meta.get("headline")
     article_body = meta.get("articleBody")
+    author = ""
+
+    # autor desde JSON-LD
+    auth_data = meta.get("author")
+    if isinstance(auth_data, dict):
+        author = auth_data.get("name", "")
+    elif isinstance(auth_data, list) and len(auth_data) > 0:
+        author = auth_data[0].get("name", "")
+
+    # fallback HTML
+    if not author:
+        soup = BeautifulSoup(html, "lxml")
+        meta_auth = soup.find("meta", {"name": "author"})
+        if meta_auth:
+            author = meta_auth.get("content", "")
 
     if not article_body:
         article_body = trafilatura.extract(html, url=url, include_comments=False, include_tables=False) or ""
@@ -186,10 +201,13 @@ def extract_article(url, tzname="Europe/Madrid"):
         headline = h.get_text(strip=True) if h else ""
 
     return {
-        "url": url, "title": headline or "",
+        "url": url,
+        "title": headline or "",
+        "author": author or "",
         "published": published.isoformat() if published else None,
         "content": article_body or ""
     }
+
 
 def is_recent(dt_iso, tzname="Europe/Madrid", hours=None):
     hours = hours or CFG.get("hours_recent", 24)  # usa config.yaml o 72 por defecto
@@ -334,6 +352,7 @@ if __name__ == "__main__":
     kws = CFG.get("keywords") or [CFG.get("keyword")]
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
     main(keyword=kws, tzname=tzname)
+
 
 
 
