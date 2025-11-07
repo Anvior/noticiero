@@ -26,7 +26,6 @@ def load_config():
 CFG = load_config()
 
 # ========= FUENTES =========
-# Soporta claves opcionales por fuente: listing, domain_prefix, max_to_fetch
 SOURCES_RAW = CFG.get("sources", [])
 SOURCES = []
 for s in SOURCES_RAW:
@@ -67,14 +66,12 @@ RETRIES = Retry(
 SESSION.mount("https://", HTTPAdapter(max_retries=RETRIES))
 SESSION.mount("http://", HTTPAdapter(max_retries=RETRIES))
 
-def log(m): 
+def log(m):
     print(m, flush=True)
 
 def http_get(url: str, timeout: int = TIMEOUT) -> requests.Response:
-    # Jitter discreto
-    time.sleep(0.25 + random.random() * 0.5)
+    time.sleep(0.25 + random.random() * 0.5)  # jitter
     r = SESSION.get(url, headers=DEFAULT_HEADERS, timeout=timeout, allow_redirects=True)
-    # No reintentar 403 aquí. Se maneja en el llamador para saltar fuente.
     if r.status_code == 403:
         raise HTTPError(f"403 Forbidden for {url}", response=r)
     r.raise_for_status()
@@ -84,7 +81,7 @@ def http_get(url: str, timeout: int = TIMEOUT) -> requests.Response:
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SMTP_USER = "anartz2001@gmail.com"
-SMTP_PASS = os.getenv("SMTP_PASS")   # App Password 16 chars
+SMTP_PASS = os.getenv("SMTP_PASS")
 TO_EMAILS = CFG.get("to_emails", ["anartz2001@gmail.com"])
 
 # ========= UTILIDADES =========
@@ -104,8 +101,7 @@ def extract_urls_regex(html, base, domain_prefix):
 
 def parse_listing_document(url, domain_prefix, max_to_fetch, debug_name):
     """
-    Intenta:
-    1) RSS/Atom si el documento es XML <rss> o <feed>.
+    1) RSS/Atom si hay <rss> o <feed>.
     2) HTML con selectores comunes.
     3) Fallback por regex.
     """
@@ -118,12 +114,10 @@ def parse_listing_document(url, domain_prefix, max_to_fetch, debug_name):
         raise
     html = res.text
     items = []
-
     soup = BeautifulSoup(html, "lxml")
 
     # 1) RSS/Atom
     if soup.find("rss") or soup.find("feed"):
-        # RSS 2.0
         for it in soup.select("item"):
             link = it.find("link")
             title = it.find("title")
@@ -133,9 +127,6 @@ def parse_listing_document(url, domain_prefix, max_to_fetch, debug_name):
                 continue
             if not u.startswith("http"):
                 u = urljoin(url, u)
-            if not u.startswith(domain_prefix):
-                # algunos feeds usan links absolutos a subdominios. Acepta si comparten prefijo más laxo
-                pass
             items.append({
                 "url": u,
                 "title": title.get_text(strip=True) if title else "",
@@ -143,7 +134,6 @@ def parse_listing_document(url, domain_prefix, max_to_fetch, debug_name):
             })
             if len(items) >= max_to_fetch:
                 break
-        # Atom
         if not items:
             for e in soup.select("entry"):
                 link = e.find("link")
@@ -185,12 +175,12 @@ def parse_listing_document(url, domain_prefix, max_to_fetch, debug_name):
 
     # 3) Fallback regex
     if len(items) < 5:
-        for u in extract_urls_regex(html, url, domain_prefix):
+        for u in extract_urls_regex(res.text, url, domain_prefix):
             items.append({"url": u, "title": "", "time_hint": ""})
             if len(items) >= max_to_fetch:
                 break
 
-    # dedup + recorte
+    # dedup
     seen, out = set(), []
     for it in items:
         u = it["url"]
@@ -255,6 +245,26 @@ def normalize_datetime(dt_str, tzname="Europe/Madrid"):
     except Exception:
         return None
 
+def extract_published_from_html(soup, tzname="Europe/Madrid"):
+    # Metas comunes y <time>
+    meta_selectors = [
+        ('meta', {'property': 'article:published_time'}),
+        ('meta', {'name': 'date'}),
+        ('meta', {'itemprop': 'datePublished'}),
+        ('meta', {'name': 'pubdate'}),
+        ('meta', {'property': 'og:updated_time'}),
+        ('time', {}),
+    ]
+    for sel in meta_selectors:
+        tag = soup.find(*sel)
+        if not tag:
+            continue
+        content = tag.get("content") or tag.get("datetime") or tag.get_text(strip=True)
+        dt = normalize_datetime(content, tzname)
+        if dt:
+            return dt
+    return None
+
 def extract_article(url, tzname="Europe/Madrid"):
     try:
         res = http_get(url)
@@ -284,8 +294,9 @@ def extract_article(url, tzname="Europe/Madrid"):
     else:
         author = pick_name(auth)
 
+    soup = BeautifulSoup(html, "lxml")
+
     if not author:
-        soup = BeautifulSoup(html, "lxml")
         for sel in [
             ('meta', {"name":"author"}),
             ('meta', {"property":"article:author"}),
@@ -307,15 +318,20 @@ def extract_article(url, tzname="Europe/Madrid"):
         article_body = article_body.strip()
 
     if not headline:
-        soup = BeautifulSoup(html, "lxml")
         h = soup.select_one("h1") or soup.select_one("header h1")
         headline = h.get_text(strip=True) if h else ""
+
+    # fecha desde HTML si falta
+    if not published:
+        published_dt = extract_published_from_html(soup, tzname)
+        if published_dt:
+            published = published_dt
 
     return {
         "url": url,
         "title": headline or "",
         "author": author or "",
-        "published": published.isoformat() if published else None,
+        "published": published.isoformat() if isinstance(published, datetime) else (published if published else None),
         "content": article_body or ""
     }
 
@@ -360,7 +376,6 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
 
 # ========= STATE =========
 def load_state():
-    # No persistente por defecto
     return set()
 
 def save_state(seen):
@@ -398,17 +413,21 @@ def main(keyword=None, tzname="Europe/Madrid"):
         else:
             kw_list = [norm(keyword)]
 
-    # Prefiltro por título/URL
+    # Prefiltro ADAPTATIVO por título/URL (solo si reduce significativamente)
     if kw_list:
         before = len(listing)
-        listing = [
+        pre = [
             it for it in listing
             if any(k in norm(it.get("title","")) or k in norm(it.get("url","")) for k in kw_list)
         ]
-        print(f"Enlaces tras prefiltro por {kw_list}: {len(listing)} (antes {before})")
-        if len(listing) == 0:
-            print("Aviso: 0 coincidencias en títulos/URLs. Continuaré con el listado completo para buscar en el cuerpo.")
-            listing = parse_all_listings()
+        THRESH_ABS = 50
+        THRESH_REL = 0.2  # 20%
+        use_prefilter = len(pre) >= max(THRESH_ABS, int(before * THRESH_REL))
+        if use_prefilter:
+            listing = pre
+            print(f"Prefiltro por {kw_list} aplicado: {len(listing)} (antes {before})")
+        else:
+            print(f"Prefiltro por {kw_list} NO aplicado ({len(pre)} candidatos). Buscaré en el cuerpo de {before} URLs.")
 
     collected = []
     for i, item in enumerate(listing, 1):
@@ -431,7 +450,7 @@ def main(keyword=None, tzname="Europe/Madrid"):
             if not any(k in fulltxt for k in kw_list):
                 continue
 
-        # exigir fecha y limitar por ventana reciente (config.yaml -> hours_recent)
+        # exigir fecha y limitar por ventana reciente
         if not art.get("published") or not is_recent(art.get("published"), tzname=tzname):
             continue
 
@@ -461,10 +480,10 @@ if __name__ == "__main__":
     tz_env = os.getenv("TZNAME")
     kws = CFG.get("keywords") or [CFG.get("keyword")]
     tzname = sys.argv[2] if len(sys.argv) > 2 else (tz_env or CFG.get("tzname","Europe/Madrid"))
-    # Permite KEYWORD por env como cadena separada por |
     if kw_env and not kws:
         kws = [k.strip() for k in kw_env.split("|") if k.strip()]
     main(keyword=kws, tzname=tzname)
+
 
 
 
