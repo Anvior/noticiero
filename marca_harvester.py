@@ -468,7 +468,7 @@ def main(keyword=None, tzname="Europe/Madrid"):
         if kw_list:
             filtro_vals = keyword if isinstance(keyword, (list, tuple, set)) else [keyword]
             filtro = f" — filtro: {', '.join(str(k) for k in filtro_vals if k)}"
-        asunto = f"MARCA + EXPANSIÓN ({datetime.now().strftime('%Y-%m-%d')}){filtro}"
+        asunto = f"Noticias de hoy ({datetime.now().strftime('%Y-%m-%d')}){filtro}"
         enviar_correo(html, subject=asunto)
     else:
         log("No hay artículos para enviar en el rango actual.")
@@ -483,6 +483,7 @@ if __name__ == "__main__":
     if kw_env and not kws:
         kws = [k.strip() for k in kw_env.split("|") if k.strip()]
     main(keyword=kws, tzname=tzname)
+
 
 
 
