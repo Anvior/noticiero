@@ -369,7 +369,7 @@ def build_html_multi(arts, tzname="Europe/Madrid"):
     return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>Noticias ( {now} )</title></head>
 <body style="font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; max-width:800px; margin:24px auto; padding:0 16px;">
-<h1 style="margin-bottom:8px;">Resumen — MARCA + EXPANSIÓN</h1>
+<h1 style="margin-bottom:8px;">Noticias de hoy</h1>
 <div style="color:#666; font-size:12px; margin-bottom:16px;">Generado {now} ({tzname})</div>
 {''.join(blocks) if blocks else '<p>No hay artículos en el rango actual.</p>'}
 </body></html>"""
@@ -483,6 +483,7 @@ if __name__ == "__main__":
     if kw_env and not kws:
         kws = [k.strip() for k in kw_env.split("|") if k.strip()]
     main(keyword=kws, tzname=tzname)
+
 
 
 
