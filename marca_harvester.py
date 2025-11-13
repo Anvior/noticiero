@@ -40,6 +40,23 @@ for s in SOURCES_RAW:
         "max_to_fetch": s.get("max_to_fetch", 400),
     })
 
+# ========= CNMV POSICIONES CORTAS =========
+# URL tal y como la usas en el navegador
+CNMV_BASE_URL = "https://www.cnmv.es/Portal/Consultas/ee/posicionescortas"
+
+def _normalize_cnmv_nifs(cfg: dict):
+    raw = cfg.get("cnmv_nifs") or cfg.get("CNMV_NIFS") or []
+    if isinstance(raw, str):
+        # admite "A-28294726" o "A-28294726, B-12345678 ..."
+        parts = re.split(r"[,\s;]+", raw)
+        return [p.strip() for p in parts if p.strip()]
+    if isinstance(raw, (list, tuple, set)):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    return []
+
+CNMV_NIFS = _normalize_cnmv_nifs(CFG)
+CNMV_LANG = (CFG.get("cnmv_lang") or "es").lower()
+
 # ========= RED =========
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -99,6 +116,145 @@ def extract_urls_regex(html, base, domain_prefix):
             urls.add(url)
     return list(urls)
 
+# ========= CNMV SCRAPER =========
+def get_cnmv_short_positions(nif: str, lang: str = None):
+    """
+    Devuelve un dict con:
+      {
+        "nif": nif,
+        "issuer": <nombre emisor o "">,
+        "url": url,
+        "rows": [
+            {"holder": str, "net_short_pct": float, "date": "YYYY-MM-DD" o str}
+        ]
+      }
+    """
+    # replicamos la URL real; 'lang' se añade sólo si está definido
+    url = f"{CNMV_BASE_URL}?nif={nif}"
+    if lang or CNMV_LANG:
+        url += f"&lang={(lang or CNMV_LANG)}"
+
+    try:
+        res = http_get(url)
+    except Exception as e:
+        log(f"[CNMV] Error descargando {url}: {e}")
+        return None
+
+    soup = BeautifulSoup(res.text, "lxml")
+
+    # Intenta localizar la tabla de posiciones cortas
+    table = None
+    for t in soup.find_all("table"):
+        txt = " ".join(t.stripped_strings)
+        if ("Outstanding net short positions" in txt or
+            "Notificaciones vivas iguales o superiores al 0,5%" in txt):
+            table = t
+            break
+
+    if table is None:
+        log(f"[CNMV] No se encontró tabla de posiciones para {nif}")
+        return {
+            "nif": nif,
+            "issuer": "",
+            "url": url,
+            "rows": [],
+        }
+
+    # Emisor (mejor esfuerzo)
+    issuer = ""
+    for tag in soup.select("h1, h2, strong"):
+        text = tag.get_text(strip=True)
+        if not text:
+            continue
+        low = text.lower()
+        if "posiciones cortas" in low or "short positions" in low:
+            continue
+        issuer = text
+        break
+
+    rows = []
+    trs = table.find_all("tr")[1:]  # saltar cabecera
+    for tr in trs:
+        tds = tr.find_all("td")
+        if len(tds) < 3:
+            continue
+
+        holder = tds[0].get_text(" ", strip=True)
+        pct_raw = tds[1].get_text(" ", strip=True)
+        date_raw = tds[2].get_text(" ", strip=True)
+
+        pct_str = pct_raw.replace(",", ".")
+        try:
+            pct = float(pct_str)
+        except ValueError:
+            continue
+
+        date_iso = date_raw
+        try:
+            dt = datetime.strptime(date_raw, "%d/%m/%Y").date()
+            date_iso = dt.isoformat()
+        except ValueError:
+            pass
+
+        rows.append({
+            "holder": holder,
+            "net_short_pct": pct,
+            "date": date_iso,
+        })
+
+    return {
+        "nif": nif,
+        "issuer": issuer,
+        "url": url,
+        "rows": rows,
+    }
+
+def build_html_cnmv(blocks):
+    """
+    blocks: lista de dicts devueltos por get_cnmv_short_positions
+    Devuelve un bloque HTML para incrustar en el email.
+    """
+    if not blocks:
+        return ""
+
+    parts = []
+    parts.append('<hr style="margin:32px 0;">')
+    parts.append('<h2 style="margin-bottom:8px;">Posiciones cortas CNMV (≥ 0,5%)</h2>')
+    for b in blocks:
+        issuer = (b.get("issuer") or "").strip()
+        title = f"{issuer} ({b['nif']})" if issuer else b["nif"]
+        parts.append(f'<h3 style="margin:16px 0 4px 0;">{title}</h3>')
+        parts.append(
+            f'<div style="font-size:12px;color:#666;margin-bottom:4px;">'
+            f'Fuente: <a href="{b["url"]}">{b["url"]}</a></div>'
+        )
+
+        rows = b.get("rows") or []
+        if not rows:
+            parts.append('<p style="font-size:13px;color:#666;">Sin posiciones vivas publicadas.</p>')
+            continue
+
+        parts.append(
+            '<table style="border-collapse:collapse;font-size:13px;margin-bottom:12px;">'
+            '<thead><tr>'
+            '<th style="border-bottom:1px solid #ccc;padding:4px 8px;text-align:left;">Titular</th>'
+            '<th style="border-bottom:1px solid #ccc;padding:4px 8px;text-align:right;">% capital</th>'
+            '<th style="border-bottom:1px solid #ccc;padding:4px 8px;text-align:left;">Fecha posición</th>'
+            '</tr></thead><tbody>'
+        )
+        for r in rows:
+            parts.append(
+                "<tr>"
+                f'<td style="padding:4px 8px;">{r["holder"]}</td>'
+                f'<td style="padding:4px 8px;text-align:right;">{r["net_short_pct"]:.3f}</td>'
+                f'<td style="padding:4px 8px;">{r["date"]}</td>'
+                "</tr>"
+            )
+        parts.append("</tbody></table>")
+
+    return "\n".join(parts)
+
+# ========= LISTINGS NOTICIAS =========
 def parse_listing_document(url, domain_prefix, max_to_fetch, debug_name):
     """
     1) RSS/Atom si hay <rss> o <feed>.
@@ -198,10 +354,14 @@ def parse_all_listings():
         name = src["name"]
         log(f"— Fuente: {name}")
         try:
-            items = parse_listing_document(src["listing"], src["domain_prefix"], src["max_to_fetch"], f"{name.lower()}_listing")
+            items = parse_listing_document(
+                src["listing"], src["domain_prefix"], src["max_to_fetch"], f"{name.lower()}_listing"
+            )
             if len(items) == 0 and src["homepage"] != src["listing"]:
                 log(f"Aviso: 0 enlaces en {name} listing. Probando portada…")
-                items = parse_listing_document(src["homepage"], src["domain_prefix"], src["max_to_fetch"], f"{name.lower()}_home")
+                items = parse_listing_document(
+                    src["homepage"], src["domain_prefix"], src["max_to_fetch"], f"{name.lower()}_home"
+                )
         except Exception as e:
             log(f"[ERROR] {name}: {e}")
             items = []
@@ -398,6 +558,7 @@ def enviar_correo(html_content, subject):
 
 # ========= MAIN =========
 def main(keyword=None, tzname="Europe/Madrid"):
+    log(f"CNMV_NIFS configurados: {CNMV_NIFS}")
     seen = load_state()
     listing = parse_all_listings()
 
@@ -461,9 +622,31 @@ def main(keyword=None, tzname="Europe/Madrid"):
 
     save_state(seen)
 
-    html = build_html_multi(collected, tzname=tzname)
+    # HTML principal de noticias
+    html_news = build_html_multi(collected, tzname=tzname)
 
-    if collected:
+    # Bloque CNMV (posiciones cortas) a partir de la config
+    cnmv_blocks = []
+    for nif in CNMV_NIFS:
+        if not nif:
+            continue
+        try:
+            block = get_cnmv_short_positions(str(nif).strip())
+        except Exception as e:
+            log(f"[CNMV] Error procesando NIF {nif}: {e}")
+            continue
+        if block:
+            cnmv_blocks.append(block)
+
+    cnmv_html = build_html_cnmv(cnmv_blocks)
+
+    if cnmv_html and "</body></html>" in html_news:
+        html = html_news.replace("</body></html>", cnmv_html + "\n</body></html>")
+    else:
+        html = html_news + (cnmv_html or "")
+
+    # Enviar correo si hay noticias o datos CNMV
+    if collected or cnmv_blocks:
         filtro = ""
         if kw_list:
             filtro_vals = keyword if isinstance(keyword, (list, tuple, set)) else [keyword]
@@ -471,9 +654,10 @@ def main(keyword=None, tzname="Europe/Madrid"):
         asunto = f"Noticias de hoy ({datetime.now().strftime('%Y-%m-%d')}){filtro}"
         enviar_correo(html, subject=asunto)
     else:
-        log("No hay artículos para enviar en el rango actual.")
+        log("No hay artículos ni posiciones cortas para enviar en el rango actual.")
 
     log(f"Artículos enviados: {len(collected)}")
+    log(f"NIFs CNMV procesados: {len(cnmv_blocks)}")
 
 if __name__ == "__main__":
     kw_env = os.getenv("KEYWORD")
@@ -483,6 +667,25 @@ if __name__ == "__main__":
     if kw_env and not kws:
         kws = [k.strip() for k in kw_env.split("|") if k.strip()]
     main(keyword=kws, tzname=tzname)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
