@@ -411,3 +411,35 @@ sources:
   - name: "EL_FARO_DE_MELILLA_MELILLA"
     url: "https://elfarodemelilla.es/"
     max_to_fetch: 400
+
+  - name: "DIARIO_DE_CADIZ_ANDALUCIA"
+    url: "https://www.diariodecadiz.es/"
+    max_to_fetch: 400
+
+  - name: "EUROPA_PRESS_ANDALUCIA"
+    url: "https://www.europapress.es/andalucia/"
+    max_to_fetch: 400
+
+  - name: "DIARIO_DE_AVISOS_CANARIAS"
+    url: "https://diariodeavisos.elespanol.com/"
+    max_to_fetch: 400
+
+  - name: "DIARIO_DE_ARAGON_ARAGON"
+    url: "https://www.diariodearagon.es/"
+    max_to_fetch: 400
+
+  - name: "EL_DIARIO_VASCO_PAIS_VASCO"
+    url: "https://www.diariovasco.com/"
+    max_to_fetch: 400
+
+  - name: "EL_DIARIO_DE_VALENCIA_COMUNIDAD_VALENCIANA"
+    url: "https://www.eldiariodevalencia.es/"
+    max_to_fetch: 400
+
+  - name: "EL_INDEPENDIENTE_NACIONAL"
+    url: "https://www.elindependiente.com/"
+    max_to_fetch: 400
+
+  - name: "ELDIARIO_ES_NACIONAL"
+    url: "https://www.eldiario.es/"
+    max_to_fetch: 400
