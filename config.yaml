@@ -3,7 +3,21 @@ cnmv_nifs: "A-28294726"
 # Puedes poner una o varias entre comillas. 
 # Si no quieres filtro, deja las comillas vacías: ""
 keywords:
-  - " "
+  - "Trump"
+  - "Sanchez"
+  - "Europa"
+
+# ❌ Palabras clave para EXCLUIR de los resultados (Layer 2).
+# El contenido que pase Layer 1 será descartado si contiene estas palabras.
+# Si no quieres usar este filtro, deja la lista vacía: []
+excluded_keywords: [
+  "Irán","guerra"
+]
+
+# ✅ Palabras clave FINALES (Layer 3).
+# Solo se incluirá contenido que contenga estas palabras (tras pasar Layer 1 y Layer 2).
+# Si no quieres usar este filtro, deja la lista vacía: []
+keywords_final_layer: ["Champions"]
 
 # 🌍 Zona horaria (normalmente no se toca).
 # Si estás en España, deja "Europe/Madrid".
@@ -16,7 +30,7 @@ hours_recent: 24
 # 📧 A qué correos se enviará el resumen.
 # Puedes añadir más poniendo cada uno en una línea nueva con "-".
 to_emails:
-  - "anartz2001@gmail.com"
+  - "joseba.ayarzaguena@brainandcode.tech"
 
 # 🌐 Medios o páginas de donde se sacan las noticias.
 # Puedes añadir o quitar medios fácilmente copiando un bloque.
